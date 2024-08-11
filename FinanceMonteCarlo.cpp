@@ -6,55 +6,49 @@
 #include <cmath>
 #include <algorithm>
 #include <numeric>
+#include <vector>
+#include <thread>
 
-struct optionsParams{
-  double S;
-  double K;
-  double r;
-  double v;
-  double T;
-  long long numSamples; 
-};
 
 FinanceMonteCarlo::FinanceMonteCarlo(int num_threads) 
     : num_threads_(num_threads) {
     random_engines_.resize(num_threads_);
-    random_device rd;
+    std::random_device rd;
     for (auto& engine : random_engines_) {
         engine.seed(rd());
     }
 }
 
-double FinanceMonteCarlo::price_european_call_option(const optionsParams p) {
-    auto sim_func = [&](mt19937& engine) {
+double FinanceMonteCarlo::price_european_call_option(const OptionParams& p) {
+    auto sim_func = [&](std::mt19937& engine) {
         double drift = (p.r - 0.5 * p.v * p.v) * p.T;
         double diffusion = p.v * std::sqrt(p.T);
         
-        std:normal_distribution<double> normal(0.0,1.0);
+        std::normal_distribution<double> normal(0.0,1.0);
   
-        double Z = normal(engine)
+        double Z = normal(engine);
         double SForward = p.S * std::exp(drift + diffusion * Z);
         return std::max(SForward - p.K, 0.0);
     };
     
-    double sum = run_simulation_thread(sim_func, p.num_samples);
-    return std::exp(-r * T) * sum / num_samples;
+    double sum = run_simulation_thread(sim_func, p.numSamples);
+    return std::exp(-p.r * p.T) * sum / p.numSamples;
 }
 
-double FinanceMonteCarlo::price_european_put_option(const optionsParams p) {
-    auto sim_func = [&](mt19937& engine) {
+double FinanceMonteCarlo::price_european_put_option(const OptionParams& p) {
+    auto sim_func = [&](std::mt19937& engine) {
         double drift = (p.r - 0.5 * p.v * p.v) * p.T;
         double diffusion = p.v * std::sqrt(p.T);
         
-        std:normal_distribution<double> normal(0.0,1.0);
+        std::normal_distribution<double> normal(0.0,1.0);
   
-        double Z = normal(engine)
+        double Z = normal(engine);
         double SForward = p.S * std::exp(drift + diffusion * Z);
         return std::max(p.K-SForward, 0.0);
     };
     
-    double sum = run_simulation_thread(sim_func, num_samples);
-    return std::exp(-r * T) * sum / num_samples;
+    double sum = run_simulation_thread(sim_func, p.numSamples);
+    return std::exp(-p.r * p.T) * sum / p.numSamples;
 }
 
 double FinanceMonteCarlo::calculate_delta(const OptionParams& p, bool is_call) {
@@ -102,9 +96,9 @@ double FinanceMonteCarlo::calculate_vega(const OptionParams& p) {
     return (V2 - V1) / h;
 }
 
-double FinanceMonteCarlo::run_simulation_thread(function<double(mt19937&)> sim_func, long long samples_per_thread) {
-    vector<thread> threads;
-    vector<double> results(num_threads_);
+double FinanceMonteCarlo::run_simulation_thread(std::function<double(std::mt19937&)> sim_func, long long samples_per_thread) {
+  std::vector<std::thread> threads;
+  std::vector<double> results(num_threads_);
 
     for (int i = 0; i < num_threads_; ++i) {
         threads.emplace_back([&, i]() {
