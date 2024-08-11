@@ -28,50 +28,78 @@ FinanceMonteCarlo::FinanceMonteCarlo(int num_threads)
 double FinanceMonteCarlo::price_european_call_option(const optionsParams p) {
     auto sim_func = [&](mt19937& engine) {
         double drift = (p.r - 0.5 * p.v * p.v) * p.T;
-        double diffusion = p.v * sqrt(p.T);
+        double diffusion = p.v * std::sqrt(p.T);
         
         std:normal_distribution<double> normal(0.0,1.0);
   
         double Z = normal(engine)
-        double SForward = p.S * exp(drift + diffusion * Z);
+        double SForward = p.S * std::exp(drift + diffusion * Z);
         return std::max(SForward - p.K, 0.0);
     };
     
-    double sum = run_simulation_thread(sim_func, num_samples);
-    return exp(-r * T) * sum / num_samples;
+    double sum = run_simulation_thread(sim_func, p.num_samples);
+    return std::exp(-r * T) * sum / num_samples;
 }
 
 double FinanceMonteCarlo::price_european_put_option(const optionsParams p) {
     auto sim_func = [&](mt19937& engine) {
         double drift = (p.r - 0.5 * p.v * p.v) * p.T;
-        double diffusion = p.v * sqrt(p.T);
+        double diffusion = p.v * std::sqrt(p.T);
         
         std:normal_distribution<double> normal(0.0,1.0);
   
         double Z = normal(engine)
-        double SForward = p.S * exp(drift + diffusion * Z);
+        double SForward = p.S * std::exp(drift + diffusion * Z);
         return std::max(p.K-SForward, 0.0);
     };
     
     double sum = run_simulation_thread(sim_func, num_samples);
-    return exp(-r * T) * sum / num_samples;
+    return std::exp(-r * T) * sum / num_samples;
 }
 
+double FinanceMonteCarlo::calculate_delta(const OptionParams& p, bool is_call) {
+    double h = 0.01 * p.S;  // Small change in stock price
+    OptionParams p_up = p;
+    OptionParams p_down = p;
+    p_up.S += h;
+    p_down.S -= h;
 
-double FinanceMonteCarlo::calculate_delta(double S, double K, double r, double sigma, double T, long long num_samples) {
-    double h = 0.01 * S;  // Small change in stock price
-    double V1 = price_european_option(S + h, K, r, sigma, T, num_samples);
-    double V2 = price_european_option(S - h, K, r, sigma, T, num_samples);
+    double V1 = is_call ? price_european_call_option(p_up) : price_european_put_option(p_up);
+    double V2 = is_call ? price_european_call_option(p_down) : price_european_put_option(p_down);
     return (V1 - V2) / (2 * h);
 }
 
-double FinanceMonteCarlo::calculate_gamma(double S, double K, double r, double sigma, double T, long long num_samples) {
-    double h = 0.01 * S;  // Small change in stock price
-    double V1 = price_european_option(S + h, K, r, sigma, T, num_samples);
-    double V2 = price_european_option(S, K, r, sigma, T, num_samples);
-    double V3 = price_european_option(S - h, K, r, sigma, T, num_samples);
-    //Approximate second derivative (optimize later) 
+double FinanceMonteCarlo::calculate_gamma(const OptionParams& p) {
+    double h = 0.01 * p.S;  // Small change in stock price
+    OptionParams p_up = p;
+    OptionParams p_down = p;
+    p_up.S += h;
+    p_down.S -= h;
+
+    double V1 = price_european_call_option(p_up);
+    double V2 = price_european_call_option(p);
+    double V3 = price_european_call_option(p_down);
     return (V1 - 2 * V2 + V3) / (h * h);
+}
+
+double FinanceMonteCarlo::calculate_theta(const OptionParams& p, bool is_call) {
+    double h = 0.01;  // Small change in time
+    OptionParams p_forward = p;
+    p_forward.T -= h;
+
+    double V1 = is_call ? price_european_call_option(p) : price_european_put_option(p);
+    double V2 = is_call ? price_european_call_option(p_forward) : price_european_put_option(p_forward);
+    return -(V2 - V1) / h;
+}
+
+double FinanceMonteCarlo::calculate_vega(const OptionParams& p) {
+    double h = 0.001;  // Small change in volatility
+    OptionParams p_up = p;
+    p_up.v += h;
+
+    double V1 = price_european_call_option(p);
+    double V2 = price_european_call_option(p_up);
+    return (V2 - V1) / h;
 }
 
 double FinanceMonteCarlo::run_simulation_thread(function<double(mt19937&)> sim_func, long long samples_per_thread) {
@@ -95,16 +123,3 @@ double FinanceMonteCarlo::run_simulation_thread(function<double(mt19937&)> sim_f
     return accumulate(results.begin(), results.end(), 0.0);
 }
 
-vector<double> FinanceMonteCarlo::generate_correlated_normals(const vector<double>& correlations) {
-    // This function generates correlated normal random variables
-    
-    int n = static_cast<int>(sqrt(correlations.size()));
-    vector<double> result(n);
-    normal_distribution<> normal(0, 1);  // Normal distribution used here
-    
-    for (int i = 0; i < n; ++i) {
-        result[i] = normal(random_engines_[0]);
-    }
-    
-    return result;
-}
