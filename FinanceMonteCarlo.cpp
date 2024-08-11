@@ -1,10 +1,20 @@
 // FinanceMonteCarlo.cpp
+#define _USE_MATH_DEFINES
+
+
 #include "FinanceMonteCarlo.h"
 #include <cmath>
 #include <algorithm>
 #include <numeric>
 
-using namespace std;
+struct optionsParams{
+  double S;
+  double K;
+  double r;
+  double v;
+  double T;
+  long long numSamples; 
+};
 
 FinanceMonteCarlo::FinanceMonteCarlo(int num_threads) 
     : num_threads_(num_threads) {
@@ -15,16 +25,38 @@ FinanceMonteCarlo::FinanceMonteCarlo(int num_threads)
     }
 }
 
-double FinanceMonteCarlo::price_european_option(double S, double K, double r, double sigma, double T, long long num_samples) {
+double FinanceMonteCarlo::price_european_call_option(const optionsParams p) {
     auto sim_func = [&](mt19937& engine) {
-        normal_distribution<> normal(0, 1);  // Normal distribution used here
-        double ST = S * exp((r - 0.5 * sigma * sigma) * T + sigma * sqrt(T) * normal(engine));
-        return max(ST - K, 0.0);
+        double drift = (p.r - 0.5 * p.v * p.v) * p.T;
+        double diffusion = p.v * sqrt(p.T);
+        
+        std:normal_distribution<double> normal(0.0,1.0);
+  
+        double Z = normal(engine)
+        double SForward = p.S * exp(drift + diffusion * Z);
+        return std::max(SForward - p.K, 0.0);
     };
     
     double sum = run_simulation_thread(sim_func, num_samples);
     return exp(-r * T) * sum / num_samples;
 }
+
+double FinanceMonteCarlo::price_european_put_option(const optionsParams p) {
+    auto sim_func = [&](mt19937& engine) {
+        double drift = (p.r - 0.5 * p.v * p.v) * p.T;
+        double diffusion = p.v * sqrt(p.T);
+        
+        std:normal_distribution<double> normal(0.0,1.0);
+  
+        double Z = normal(engine)
+        double SForward = p.S * exp(drift + diffusion * Z);
+        return std::max(p.K-SForward, 0.0);
+    };
+    
+    double sum = run_simulation_thread(sim_func, num_samples);
+    return exp(-r * T) * sum / num_samples;
+}
+
 
 double FinanceMonteCarlo::calculate_delta(double S, double K, double r, double sigma, double T, long long num_samples) {
     double h = 0.01 * S;  // Small change in stock price
