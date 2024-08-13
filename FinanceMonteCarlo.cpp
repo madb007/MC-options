@@ -32,7 +32,7 @@ double FinanceMonteCarlo::price_european_call_option(const OptionParams& p) {
     };
     
     double sum = run_simulation_thread(sim_func, p.numSamples);
-    return std::exp(-p.r * p.T) * sum / p.numSamples;
+    return (std::exp(-p.r * p.T) * sum / p.numSamples)/num_threads_;
 }
 
 double FinanceMonteCarlo::price_european_put_option(const OptionParams& p) {
@@ -48,7 +48,7 @@ double FinanceMonteCarlo::price_european_put_option(const OptionParams& p) {
     };
     
     double sum = run_simulation_thread(sim_func, p.numSamples);
-    return std::exp(-p.r * p.T) * sum / p.numSamples;
+    return (std::exp(-p.r * p.T) * sum / p.numSamples)/num_threads_;
 }
 
 double FinanceMonteCarlo::calculate_delta(const OptionParams& p, bool is_call) {
@@ -64,20 +64,19 @@ double FinanceMonteCarlo::calculate_delta(const OptionParams& p, bool is_call) {
 }
 
 double FinanceMonteCarlo::calculate_gamma(const OptionParams& p) {
-    double h = 0.01 * p.S;  // Small change in stock price
+    double h = 0.03 * p.S;  // Small change in stock price
     OptionParams p_up = p;
     OptionParams p_down = p;
     p_up.S += h;
     p_down.S -= h;
-
-    double V1 = price_european_call_option(p_up);
-    double V2 = price_european_call_option(p);
-    double V3 = price_european_call_option(p_down);
-    return (V1 - 2 * V2 + V3) / (h * h);
+    
+    double delta_up = calculate_delta(p_up,true);
+    double delta_down = calculate_delta(p_down,true);
+    return (delta_up-delta_down) / (2 * h);
 }
 
 double FinanceMonteCarlo::calculate_theta(const OptionParams& p, bool is_call) {
-    double h = 0.01;  // Small change in time
+    double h = 0.05;  // Small change in time
     OptionParams p_forward = p;
     p_forward.T -= h;
 
@@ -87,7 +86,7 @@ double FinanceMonteCarlo::calculate_theta(const OptionParams& p, bool is_call) {
 }
 
 double FinanceMonteCarlo::calculate_vega(const OptionParams& p) {
-    double h = 0.001;  // Small change in volatility
+    double h = 0.05;  // Small change in volatility
     OptionParams p_up = p;
     p_up.v += h;
 

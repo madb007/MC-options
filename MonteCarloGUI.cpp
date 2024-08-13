@@ -26,13 +26,19 @@ public:
 
         // Create results grid
         resultsGrid = new wxGrid(panel, wxID_ANY);
-        resultsGrid->CreateGrid(2, 3);
-        resultsGrid->SetColLabelValue(0, "Option Type");
-        resultsGrid->SetColLabelValue(1, "Price");
-        resultsGrid->SetColLabelValue(2, "Delta");
-        resultsGrid->SetRowLabelValue(0, "Call");
-        resultsGrid->SetRowLabelValue(1, "Put");
-        resultsGrid->SetMinSize(wxSize(300, 100));
+        resultsGrid->CreateGrid(5, 3);  // 5 rows (Price + 4 Greeks), 3 columns (Metric, Call, Put)
+        resultsGrid->SetColLabelValue(0, "Metric");
+        resultsGrid->SetColLabelValue(1, "Call");
+        resultsGrid->SetColLabelValue(2, "Put");
+        
+        wxArrayString rowLabels = {"Price", "Delta", "Gamma", "Theta", "Vega"};
+        for (size_t i = 0; i < rowLabels.size(); ++i) {
+            resultsGrid->SetCellValue(i, 0, rowLabels[i]);
+        }
+        
+        resultsGrid->SetDefaultColSize(87,false);
+        resultsGrid->SetDefaultRowSize(84,false);
+        resultsGrid->SetMinSize(wxSize(340, 450));
 
         // Main sizer
         wxBoxSizer* mainSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -69,20 +75,39 @@ private:
             FinanceMonteCarlo mc(numThreads);
             OptionParams params{S, K, r, v, T, numSamples};
 
+            // Calculate metrics
             double callPrice = mc.price_european_call_option(params);
             double putPrice = mc.price_european_put_option(params);
             double callDelta = mc.calculate_delta(params, true);
             double putDelta = mc.calculate_delta(params, false);
+            double gamma = mc.calculate_gamma(params);
+            double callTheta = mc.calculate_theta(params, true);
+            double putTheta = mc.calculate_theta(params, false);
+            double vega = mc.calculate_vega(params);
 
-            resultsGrid->SetCellValue(0, 1, wxString::Format("%.4f", callPrice));
-            resultsGrid->SetCellValue(1, 1, wxString::Format("%.4f", putPrice));
-            resultsGrid->SetCellValue(0, 2, wxString::Format("%.4f", callDelta));
-            resultsGrid->SetCellValue(1, 2, wxString::Format("%.4f", putDelta));
+            // Update the grid with results
+            UpdateGridCell(0, 1, callPrice);
+            UpdateGridCell(0, 2, putPrice);
+            UpdateGridCell(1, 1, callDelta);
+            UpdateGridCell(1, 2, putDelta);
+            UpdateGridCell(2, 1, gamma);
+            UpdateGridCell(2, 2, gamma);
+            UpdateGridCell(3, 1, callTheta);
+            UpdateGridCell(3, 2, putTheta);
+            UpdateGridCell(4, 1, vega);
+            UpdateGridCell(4, 2, vega);
+
+            resultsGrid->AutoSizeColumns();
         }
         catch (const std::exception& e)
         {
             wxMessageBox(e.what(), "Error", wxOK | wxICON_ERROR);
         }
+    }
+
+    void UpdateGridCell(int row, int col, double value)
+    {
+        resultsGrid->SetCellValue(row, col, wxString::Format("%.6f", value));
     }
 
     wxTextCtrl *stockPriceCtrl, *strikePriceCtrl, *riskFreeRateCtrl, *volatilityCtrl, 
@@ -101,4 +126,4 @@ public:
     }
 };
 
-wxIMPLEMENT_APP(MonteCarloApp);
+wxIMPLEMENT_APP(MonteCarloApp);    // ... (same as before)
