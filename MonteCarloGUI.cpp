@@ -36,8 +36,7 @@ public:
             resultsGrid->SetCellValue(i, 0, rowLabels[i]);
         }
         
-        resultsGrid->SetDefaultColSize(87,false);
-        resultsGrid->SetDefaultRowSize(84,false);
+        resultsGrid->AutoSizeColumns();  // Automatically size columns initially
         resultsGrid->SetMinSize(wxSize(340, 450));
 
         // Main sizer
@@ -64,22 +63,22 @@ private:
     {
         try
         {
-            double S = std::stod(stockPriceCtrl->GetValue().ToStdString());
-            double K = std::stod(strikePriceCtrl->GetValue().ToStdString());
-            double r = std::stod(riskFreeRateCtrl->GetValue().ToStdString());
-            double v = std::stod(volatilityCtrl->GetValue().ToStdString());
-            double T = std::stod(timeToMaturityCtrl->GetValue().ToStdString());
-            long long numSamples = std::stoll(numSamplesCtrl->GetValue().ToStdString());
-            int numThreads = std::stoi(numThreadsCtrl->GetValue().ToStdString());
+            double S = wxAtof(stockPriceCtrl->GetValue());
+            double K = wxAtof(strikePriceCtrl->GetValue());
+            double r = wxAtof(riskFreeRateCtrl->GetValue());
+            double v = wxAtof(volatilityCtrl->GetValue());
+            double T = wxAtof(timeToMaturityCtrl->GetValue());
+            long long numSamples = wxAtoi(numSamplesCtrl->GetValue());
+            int numThreads = wxAtoi(numThreadsCtrl->GetValue());
 
             FinanceMonteCarlo mc(numThreads);
-            OptionParams params{S, K, r, v, T, numSamples};
+            OptionParams params{S, K, T, r, v, numSamples};  // Changed order to match OptionParams struct
 
             // Calculate metrics
             double callPrice = mc.price_european_option(params, true);
             double putPrice = mc.price_european_option(params, false);
-            double callPriceBS = mc.black_scholes_price(params,true);
-            double putPriceBS = mc.black_scholes_price(params,false);
+            double callPriceBS = mc.black_scholes_price(params, true);
+            double putPriceBS = mc.black_scholes_price(params, false);
             double callDelta = mc.black_scholes_delta(params, true);
             double putDelta = mc.black_scholes_delta(params, false);
             double gamma = mc.black_scholes_gamma(params);
@@ -130,4 +129,4 @@ public:
     }
 };
 
-wxIMPLEMENT_APP(MonteCarloApp);    // ... (same as before)
+wxIMPLEMENT_APP(MonteCarloApp);

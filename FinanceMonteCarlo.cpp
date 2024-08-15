@@ -80,14 +80,15 @@ double FinanceMonteCarlo::black_scholes_theta(const OptionParams& p, bool is_cal
     } else {
         theta += p.r * p.K * std::exp(-p.r * p.T) * (1 - Nd2);
     }
-    
-    return theta;
+    //Get daily theta
+    return theta/365;
 }
 
 double FinanceMonteCarlo::black_scholes_vega(const OptionParams& p) {
     //Vega is derivative of options price with respect to volatility
     calculate_d1_d2(p);
-    return p.S * std::sqrt(p.T) * std::exp(-0.5 * d1 * d1) / std::sqrt(2 * M_PI);
+    //calculate vega and divide by 100 to account for decimal input
+    return p.S * std::sqrt(p.T) * std::exp(-0.5 * d1 * d1) / (100 * std::sqrt(2 * M_PI));
 }
 
 double FinanceMonteCarlo::run_simulation_thread(std::function<double(std::mt19937&)> sim_func, long long samples_per_thread) {
