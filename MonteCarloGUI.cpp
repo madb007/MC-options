@@ -5,7 +5,7 @@
 class MonteCarloFrame : public wxFrame
 {
 public:
-    MonteCarloFrame() : wxFrame(nullptr, wxID_ANY, "Monte Carlo Option Pricer")
+    MonteCarloFrame() : wxFrame(nullptr, wxID_ANY, "Multi-Method Option Pricer")
     {
         wxPanel* panel = new wxPanel(this);
 
@@ -37,7 +37,7 @@ public:
         }
         
         resultsGrid->AutoSizeColumns();  // Automatically size columns initially
-        resultsGrid->SetMinSize(wxSize(340, 450));
+        resultsGrid->SetMinSize(wxSize(375, 275));
 
         // Main sizer
         wxBoxSizer* mainSizer = new wxBoxSizer(wxHORIZONTAL);

@@ -1,22 +1,32 @@
-#!/bin/bash
+#!/bin/sh
 
-# Compile and Run Script for Monte Carlo Pricer
+# Monte Carlo GUI Build and Run Script
 
-# Set your compiler and wxWidgets configuration here
+# Set compiler and flags
 COMPILER=g++
+STD_VERSION=c++17
 WXCONFIG=wx-config
 
 # Compile the code
 echo "Compiling..."
-$COMPILER FinanceMonteCarlo.cpp -c -o FinanceMonteCarlo.o `$WXCONFIG --cxxflags`
-$COMPILER MonteCarloApp.cpp FinanceMonteCarlo.o -o MonteCarloApp `$WXCONFIG --libs --cxxflags`
+$COMPILER -std=$STD_VERSION MonteCarloGUI.cpp FinanceMonteCarlo.cpp `$WXCONFIG --cxxflags --libs` -o MonteCarloGUI
 
 # Check if compilation was successful
 if [ $? -ne 0 ]; then
-    echo "Compilation failed."
+    echo "Compilation failed. Please check the error messages above."
     exit 1
 fi
 
+echo "Compilation successful!"
+
 # Run the executable
-echo "Running MonteCarloApp..."
-./MonteCarloApp
+echo "Running MonteCarloGUI..."
+./MonteCarloGUI
+
+# Check if the program ran successfully
+if [ $? -ne 0 ]; then
+    echo "Program execution failed. Please check the error messages above."
+    exit 1
+fi
+
+echo "Program execution completed."
