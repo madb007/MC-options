@@ -26,12 +26,12 @@ public:
 
         // Create results grid
         resultsGrid = new wxGrid(panel, wxID_ANY);
-        resultsGrid->CreateGrid(5, 3);  // 5 rows (Price + 4 Greeks), 3 columns (Metric, Call, Put)
+        resultsGrid->CreateGrid(6, 3);  // 6 rows (2 Price + 4 Greeks), 3 columns (Metric, Call, Put)
         resultsGrid->SetColLabelValue(0, "Metric");
         resultsGrid->SetColLabelValue(1, "Call");
         resultsGrid->SetColLabelValue(2, "Put");
         
-        wxArrayString rowLabels = {"Price", "Delta", "Gamma", "Theta", "Vega"};
+        wxArrayString rowLabels = {"Monte-Carlo Price", "Black-Scholes Price", "Delta", "Gamma", "Theta", "Vega"};
         for (size_t i = 0; i < rowLabels.size(); ++i) {
             resultsGrid->SetCellValue(i, 0, rowLabels[i]);
         }
@@ -76,26 +76,30 @@ private:
             OptionParams params{S, K, r, v, T, numSamples};
 
             // Calculate metrics
-            double callPrice = mc.price_european_call_option(params);
-            double putPrice = mc.price_european_put_option(params);
-            double callDelta = mc.calculate_delta(params, true);
-            double putDelta = mc.calculate_delta(params, false);
-            double gamma = mc.calculate_gamma(params);
-            double callTheta = mc.calculate_theta(params, true);
-            double putTheta = mc.calculate_theta(params, false);
-            double vega = mc.calculate_vega(params);
+            double callPrice = mc.price_european_option(params, true);
+            double putPrice = mc.price_european_option(params, false);
+            double callPriceBS = mc.black_scholes_price(params,true);
+            double putPriceBS = mc.black_scholes_price(params,false);
+            double callDelta = mc.black_scholes_delta(params, true);
+            double putDelta = mc.black_scholes_delta(params, false);
+            double gamma = mc.black_scholes_gamma(params);
+            double callTheta = mc.black_scholes_theta(params, true);
+            double putTheta = mc.black_scholes_theta(params, false);
+            double vega = mc.black_scholes_vega(params);
 
             // Update the grid with results
             UpdateGridCell(0, 1, callPrice);
             UpdateGridCell(0, 2, putPrice);
-            UpdateGridCell(1, 1, callDelta);
-            UpdateGridCell(1, 2, putDelta);
-            UpdateGridCell(2, 1, gamma);
-            UpdateGridCell(2, 2, gamma);
-            UpdateGridCell(3, 1, callTheta);
-            UpdateGridCell(3, 2, putTheta);
-            UpdateGridCell(4, 1, vega);
-            UpdateGridCell(4, 2, vega);
+            UpdateGridCell(1, 1, callPriceBS);
+            UpdateGridCell(1, 2, putPriceBS);
+            UpdateGridCell(2, 1, callDelta);
+            UpdateGridCell(2, 2, putDelta);
+            UpdateGridCell(3, 1, gamma);
+            UpdateGridCell(3, 2, gamma);
+            UpdateGridCell(4, 1, callTheta);
+            UpdateGridCell(4, 2, putTheta);
+            UpdateGridCell(5, 1, vega);
+            UpdateGridCell(5, 2, vega);
 
             resultsGrid->AutoSizeColumns();
         }

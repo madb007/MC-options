@@ -1,39 +1,37 @@
-#ifndef FINANCE_MONTE_CARLO_H
-#define FINANCE_MONTE_CARLO_H
-
-#define _USE_MATH_DEFINES
-#include <cmath>
-#include <vector>
+#pragma once
 #include <random>
+#include <vector>
 #include <functional>
-#include <thread>
 
 struct OptionParams {
-    double S;
-    double K;
-    double r;
-    double v;
-    double T;
-    long long numSamples;
+    double S;  // Spot price
+    double K;  // Strike price
+    double T;  // Time to maturity
+    double r;  // Risk-free rate
+    double v;  // Volatility
+    long long numSamples;  // Number of Monte Carlo samples
 };
 
 class FinanceMonteCarlo {
 public:
-    explicit FinanceMonteCarlo(int num_threads);
-
-    double price_european_call_option(const OptionParams& p);
-    double price_european_put_option(const OptionParams& p);
-    double calculate_delta(const OptionParams& p, bool is_call);
-    double calculate_gamma(const OptionParams& p);
-    double calculate_theta(const OptionParams& p, bool is_call);
-    double calculate_vega(const OptionParams& p);
+    FinanceMonteCarlo(int num_threads);
+    
+    // Monte Carlo method
+    double price_european_option(const OptionParams& p, bool is_call);
+    
+    // Black-Scholes methods
+    double black_scholes_price(const OptionParams& p, bool is_call);
+    double black_scholes_delta(const OptionParams& p, bool is_call);
+    double black_scholes_gamma(const OptionParams& p);
+    double black_scholes_theta(const OptionParams& p, bool is_call);
+    double black_scholes_vega(const OptionParams& p);
 
 private:
     int num_threads_;
     std::vector<std::mt19937> random_engines_;
-
+    void calculate_d1_d2(const OptionParams& p);
     double run_simulation_thread(std::function<double(std::mt19937&)> sim_func, long long samples_per_thread);
 };
 
-#endif 
-
+// Global variables for Black-Scholes calculations
+extern double d1, d2, Nd1, Nd2;
