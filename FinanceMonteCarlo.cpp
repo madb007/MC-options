@@ -6,9 +6,9 @@
 #include <vector>
 #include <thread>
 
-FinanceMonteCarlo::FinanceMonteCarlo(int num_threads)
-    //set up random engines for threads
+FinanceMonteCarlo::FinanceMonteCarlo(int num_threads) 
     : num_threads_(num_threads) {
+    // Initialize thread-local random number generators
     random_engines_.resize(num_threads_);
     std::random_device rd;
     for (auto& engine : random_engines_) {
@@ -17,20 +17,60 @@ FinanceMonteCarlo::FinanceMonteCarlo(int num_threads)
 }
 
 double FinanceMonteCarlo::price_european_option(const OptionParams& p, bool is_call) {
-    auto sim_func = [&](std::mt19937& engine) {
-        //Use Mersenne Twister pseudo random number generator
-        double drift = (p.r - 0.5 * p.v * p.v) * p.T;
-        double diffusion = p.v * std::sqrt(p.T);
-        
-        std::normal_distribution<double> normal(0.0, 1.0);
-  
-        double Z = normal(engine);
-        double SForward = p.S * std::exp(drift + diffusion * Z);
-        return is_call ? std::max(SForward - p.K, 0.0) : std::max(p.K - SForward, 0.0);
-    };
+    double drift = (p.r - 0.5 * p.v * p.v) * p.T;
+    double diffusion = p.v * std::sqrt(p.T);
     
-    double sum = run_simulation_thread(sim_func, p.numSamples);
-    return (std::exp(-p.r * p.T) * sum / p.numSamples) / num_threads_;
+    // Load constants into SIMD registers
+    __m256d _drift = _mm256_set1_pd(drift);
+    __m256d _diffusion = _mm256_set1_pd(diffusion);
+    __m256d _S = _mm256_set1_pd(p.S);
+    __m256d _K = _mm256_set1_pd(p.K);
+    __m256d _zero = _mm256_set1_pd(0.0);
+    
+    double total_sum = 0.0;
+    
+    #pragma omp parallel num_threads(num_threads_) reduction(+:total_sum)
+    {
+        std::normal_distribution<double> normal(0.0, 1.0);
+        auto& engine = random_engines_[omp_get_thread_num()];
+        
+        // Pre-allocate arrays for SIMD operations
+        std::vector<double> z_values(4);
+        std::vector<double> payoffs(4);
+        
+        #pragma omp for schedule(dynamic, 1000)
+        for (long long i = 0; i < p.numSamples; i += 4) {
+            // Generate 4 random numbers
+            for (int j = 0; j < 4; ++j) {
+                double Z = normal(engine);
+                z_values[j] = Z;
+            }
+            
+            // Load random numbers into SIMD register
+            __m256d _Z = _mm256_loadu_pd(z_values.data());
+            
+            // Calculate stock prices using SIMD
+            __m256d _diffusionZ = _mm256_mul_pd(_diffusion, _Z);
+            __m256d _total = _mm256_add_pd(_drift, _diffusionZ);
+            __m256d _SForward = _mm256_mul_pd(_S, _mm256_exp_pd(_total));
+            
+            // Calculate payoffs
+            __m256d _payoff;
+            if (is_call) {
+                _payoff = _mm256_max_pd(_mm256_sub_pd(_SForward, _K), _zero);
+            } else {
+                _payoff = _mm256_max_pd(_mm256_sub_pd(_K, _SForward), _zero);
+            }
+            
+            // Store results and accumulate sum
+            _mm256_storeu_pd(payoffs.data(), _payoff);
+            for (int j = 0; j < 4; ++j) {
+                total_sum += payoffs[j];
+            }
+        }
+    }
+    
+    return std::exp(-p.r * p.T) * total_sum / p.numSamples;
 }
 
 // Global variables for Black-Scholes calculations
